@@ -34,14 +34,12 @@ cp config.example.env .env
 ```
 
 4. Отредактируйте `.env` файл и укажите:
-   - URL вашего Kaiten пространства
-   - API токен
-   - ID числовых полей для суммирования
-   - ID поля статуса для обновления
+   - URL вашего Kaiten пространства и API токен
+   - ID полей критериев (входные оценки) и ID полей результатов (куда записывать параметры комиссии)
 
 ## Конфигурация
 
-Откройте файл `.env` и настройте следующие параметры:
+Откройте файл `.env` и настройте следующие параметры (см. также `config.example.env`):
 
 ```env
 # URL вашего Kaiten пространства
@@ -50,51 +48,57 @@ KAITEN_API_URL=https://your-space.kaiten.ru/api/latest
 # API токен (можно получить в настройках Kaiten)
 KAITEN_API_TOKEN=your_api_token_here
 
-# ID числовых полей через запятую
-NUMERIC_FIELD_IDS=field_id_1,field_id_2,field_id_3
+# ID полей критериев (входные данные, оценки 1–5)
+FIELD_AKTUALNOST=field_id_aktualnost
+FIELD_NOVIZNA=field_id_novizna
+FIELD_OPYT_SPIKERA=field_id_opyt_spikera
+FIELD_HARIZMA=field_id_harizma
+FIELD_PRIMENIMOST=field_id_priminimost
+FIELD_MASSOVOST=field_id_massovost
 
-# ID поля статуса
-STATUS_FIELD_ID=status_field_id
+# Текстовое/Select поле: инфлюенсер ("Да"/"Нет")
+FIELD_INFLUENCER=field_id_influencer
 
-# Значения статусов (опционально)
-STATUS_GOLD=Gold
-STATUS_SILVER=Silver
-STATUS_BRONZE=Bronze
+# ID полей результатов (выходные данные, обновляются автоматически)
+FIELD_RATING_KACHESTVA=field_id_rating_kachestva
+FIELD_TIP_KONTENTA=field_id_tip_kontenta
+FIELD_UROVEN_SPIKERA=field_id_uroven_spikera
+FIELD_OHVAT=field_id_ohvat
 
-# Пороговые значения (опционально)
-THRESHOLD_GOLD=13
-THRESHOLD_SILVER=9
+# Опционально: ID доски или пространства для пакетной обработки
+# BOARD_ID=board_id_here
+# SPACE_ID=space_id_here
 ```
 
 ### Как найти ID полей в Kaiten
 
-1. Откройте карточку в Kaiten
-2. Откройте инструменты разработчика браузера (F12)
-3. Посмотрите структуру данных карточки в Network запросах к API
-4. Или используйте API напрямую для получения информации о карточке
+Используйте утилиту `get_card_info.py`: укажите ID карточки — скрипт выведет ID полей и пример переменных для `.env`. Либо откройте карточку в Kaiten, инструменты разработчика (F12) → вкладка Network → запросы к API, и посмотрите структуру полей карточки.
 
 ## Использование
 
-### Вариант 1: Обработка одной карточки
+### Вариант 1: CLI — одна карточка или все (рекомендуется для расчёта параметров комиссии)
 
 ```bash
-python kaiten_automation.py <card_id>
+# Одна карточка
+python run_automation.py --card 12345
+
+# Все карточки на доске/в пространстве (нужны BOARD_ID или SPACE_ID в .env)
+python run_automation.py --all
 ```
 
-Например:
+Использует логику из `index.py`: вычисляет Рейтинг качества, Тип контента, Уровень спикера, Охват по критериям оценки.
+
+### Вариант 2: Упрощённая автоматизация (сумма полей → статус Gold/Silver/Bronze)
+
+Если нужна только логика «сумма числовых полей → одно поле статуса», используйте `kaiten_automation.py` и настройте в `.env`: `NUMERIC_FIELD_IDS`, `STATUS_FIELD_ID`, `THRESHOLD_GOLD`, `THRESHOLD_SILVER`.
+
 ```bash
 python kaiten_automation.py 12345
-```
-
-### Вариант 2: Обработка всех карточек
-
-```bash
+# или без аргумента — все карточки (BOARD_ID/SPACE_ID в .env)
 python kaiten_automation.py
 ```
 
-Обработает все карточки на указанной доске или в пространстве (если указаны `BOARD_ID` или `SPACE_ID` в `.env`).
-
-### Вариант 3: Вебхук-сервер (рекомендуется)
+### Вариант 3: Вебхук-сервер (рекомендуется для продакшена)
 
 Запустите вебхук-обработчик:
 
@@ -191,7 +195,7 @@ docker run -d -p 5000:5000 --env-file .env kaiten-automation
 - Может потребоваться адаптация кода под конкретную платформу
 - Ограничения по времени выполнения
 
-### Рекомендация 4: Интеграция через no-code платформы
+### Рекомендация 5: Интеграция через no-code платформы
 
 Если не хотите поддерживать собственный код, можно использовать:
 - **Zapier** - поддерживает Kaiten
@@ -202,20 +206,21 @@ docker run -d -p 5000:5000 --env-file .env kaiten-automation
 
 ```
 kaiten-automation/
-├── kaiten_automation.py    # Основной скрипт автоматизации
-├── index.py                # Handler для Yandex Cloud Functions
-├── webhook_handler.py      # Вебхук-сервер
+├── index.py                # Логика расчёта параметров комиссии + handler для Yandex Cloud Functions
+├── run_automation.py       # CLI: запуск автоматизации (одна карточка или все)
+├── kaiten_automation.py    # Упрощённая автоматизация: сумма полей → статус Gold/Silver/Bronze
+├── webhook_handler.py      # Вебхук-сервер (вызов логики из index.py)
+├── get_card_info.py        # Утилита: вывод ID полей карточки для настройки .env
 ├── test_automation.py      # Тесты логики автоматизации
-├── get_card_info.py        # Утилита для получения информации о карточке
 ├── requirements.txt        # Зависимости Python
-├── config.example.env      # Пример конфигурации
+├── config.example.env      # Пример конфигурации (FIELD_* и т.д.)
 ├── .env                    # Ваша конфигурация (создайте из example)
 ├── Dockerfile              # Docker образ
 ├── docker-compose.yml      # Docker Compose конфигурация
 ├── pack_for_yandex_cloud.sh # Скрипт упаковки для Yandex Cloud
 ├── yandex-cloud-deploy.md  # Инструкция по развертыванию в Yandex Cloud
 ├── systemd/                # Пример systemd сервиса
-└── README.md              # Документация
+└── README.md               # Документация
 ```
 
 ## Логирование
