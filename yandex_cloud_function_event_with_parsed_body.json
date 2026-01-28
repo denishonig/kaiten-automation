@@ -1,0 +1,207 @@
+{
+  "httpMethod": "POST",
+  "headers": {
+    "Accept": "application/json, text/plain, */*",
+    "Accept-Encoding": "gzip, compress, deflate, br",
+    "Baggage": "sentry-environment=production,sentry-release=22.169.10,sentry-public_key=26c58f1bc102a0be625b8152c694d5a5,sentry-trace_id=d88dfb234df9467790804697b5be88d2",
+    "Content-Length": "2297",
+    "Content-Type": "application/json",
+    "Host": "functions.yandexcloud.net",
+    "Sentry-Trace": "d88dfb234df9467790804697b5be88d2-8e6ff8af68ea627a",
+    "Uber-Trace-Id": "bae9788e3aee344a:d8ba1bcff40e2993:bae9788e3aee344a:1",
+    "User-Agent": "axios/1.13.2",
+    "X-Forwarded-For": "185.206.167.167",
+    "X-Real-Remote-Address": "[185.206.167.167]:56295",
+    "X-Request-Id": "4b944812-b05d-419e-8ec5-2bea6e42d392",
+    "X-Trace-Id": "6d4eef26-77c7-4658-ac4b-f4b879d76aae"
+  },
+  "url": "",
+  "params": {},
+  "multiValueParams": {},
+  "pathParams": {},
+  "multiValueHeaders": {
+    "Accept": [
+      "application/json, text/plain, */*"
+    ],
+    "Accept-Encoding": [
+      "gzip, compress, deflate, br"
+    ],
+    "Baggage": [
+      "sentry-environment=production,sentry-release=22.169.10,sentry-public_key=26c58f1bc102a0be625b8152c694d5a5,sentry-trace_id=d88dfb234df9467790804697b5be88d2"
+    ],
+    "Content-Length": [
+      "2297"
+    ],
+    "Content-Type": [
+      "application/json"
+    ],
+    "Host": [
+      "functions.yandexcloud.net"
+    ],
+    "Sentry-Trace": [
+      "d88dfb234df9467790804697b5be88d2-8e6ff8af68ea627a"
+    ],
+    "Uber-Trace-Id": [
+      "bae9788e3aee344a:d8ba1bcff40e2993:bae9788e3aee344a:1"
+    ],
+    "User-Agent": [
+      "axios/1.13.2"
+    ],
+    "X-Forwarded-For": [
+      "185.206.167.167"
+    ],
+    "X-Real-Remote-Address": [
+      "[185.206.167.167]:56295"
+    ],
+    "X-Request-Id": [
+      "4b944812-b05d-419e-8ec5-2bea6e42d392"
+    ],
+    "X-Trace-Id": [
+      "6d4eef26-77c7-4658-ac4b-f4b879d76aae"
+    ]
+  },
+  "isBase64Encoded": false,
+  "body": "{\"event\":\"card:update\",\"data\":{\"old\":{\"type_id\":1,\"sprint_id\":null,\"sd_external_recipients\":null,\"planned_end\":null,\"size\":null,\"goals_done\":0,\"expires_later\":false,\"last_moved_to_at\":null,\"asap\":false,\"children_done\":0,\"parents_ids\":null,\"size_unit\":null,\"archived\":false,\"share_settings\":null,\"column_id\":5597404,\"goals_total\":0,\"service_id\":null,\"description_filled\":false,\"calculated_planned_start\":null,\"time_blocked_sum\":0,\"owner_id\":707164,\"planned_start\":null,\"column_changed_at\":\"2026-01-14T05:41:23.348Z\",\"completed_at\":null,\"last_moved_at\":\"2026-01-14T05:41:23.348Z\",\"parent_link_ids\":null,\"time_spent_sum\":0,\"created\":\"2026-01-14T05:41:23.348Z\",\"public\":false,\"parent_checklist_ids\":null,\"milestone_id\":null,\"locked\":null,\"size_text\":null,\"blocked\":false,\"sort_order\":5,\"lane_id\":1999071,\"estimate_workload\":0,\"due_date_time_present\":false,\"external_id\":null,\"children_count\":0,\"uid\":\"5c6a6db9-db3f-470a813-044cf9ed836a\",\"updater_id\":707164,\"state\":1,\"lane_changed_at\":\"2026-01-14T05:41:23.348Z\",\"sd_new_comment\":false,\"tag_ids\":null,\"properties\":{\"id_529637\":5,\"id_529638\":1,\"id_530178\":[16258460],\"id_529630\":5,\"id_532084\":[16258463],\"id_529631\":5,\"id_529643\":5,\"id_532086\":[16258467],\"id_532087\":[16258470],\"id_529634\":5},\"board_id\":1613875,\"first_moved_to_in_progress_at\":null,\"children_number_properties_sum\":null,\"import_id\":null,\"external_emails\":null,\"has_blocked_children\":false,\"children_ids\":null,\"version\":89,\"title\":\"Тестовая задача. Удалить потом\",\"counters_recalculated_at\":\"2026-01-18T15:09:31.458Z\",\"comments_total\":0,\"parents_count\":0,\"due_date\":null,\"completed_on_time\":null,\"blocking_card\":false,\"source\":\"app\",\"updated\":\"2026-01-25T16:36:16.579Z\",\"id\":59682997,\"condition\":1,\"share_id\":null,\"comment_last_added_at\":null,\"fifo_order\":null,\"description\":null,\"fts_version\":\"027267\",\"calculated_planned_end\":null},\"changes\":{\"updated\":\"2026-01-25T16:36:18.956Z\",\"version\":90,\"properties\":{\"id_529637\":5,\"id_529638\":5,\"id_530178\":[16258460],\"id_529630\":5,\"id_532084\":[16258463],\"id_529631\":5,\"id_529643\":5,\"id_532086\":[16258467],\"id_532087\":[16258470],\"id_529634\":5}},\"author\":{\"id\":707164,\"full_name\":\"Денис Яковлев\",\"username\":\"ДенисЯковлев\",\"email\":\"denis.honig.yakovlev@gmail.com\"}}}",
+  "request_id": "4b944812-b05d-419e-8ec5-2bea6e42d392",
+  "source": "user",
+  "version_id": "d4erl9jnbdqqnrm0p0vs",
+  "requestTimeEpoch": 1769358979,
+  "requestTime": "25/Jan/2026:16:36:19 +0000",
+  "requestId": "4b944812-b05d-419e-8ec5-2bea6e42d392",
+  "userAgent": "axios/1.13.2",
+  "sourceIp": "185.206.167.167",
+  "identity": {
+    "requestContext": {
+      "multiValueQueryStringParameters": {},
+      "queryStringParameters": {}
+    }
+  },
+  "body_parsed": {
+    "event": "card:update",
+    "data": {
+      "old": {
+        "type_id": 1,
+        "sprint_id": null,
+        "sd_external_recipients": null,
+        "planned_end": null,
+        "size": null,
+        "goals_done": 0,
+        "expires_later": false,
+        "last_moved_to_at": null,
+        "asap": false,
+        "children_done": 0,
+        "parents_ids": null,
+        "size_unit": null,
+        "archived": false,
+        "share_settings": null,
+        "column_id": 5597404,
+        "goals_total": 0,
+        "service_id": null,
+        "description_filled": false,
+        "calculated_planned_start": null,
+        "time_blocked_sum": 0,
+        "owner_id": 707164,
+        "planned_start": null,
+        "column_changed_at": "2026-01-14T05:41:23.348Z",
+        "completed_at": null,
+        "last_moved_at": "2026-01-14T05:41:23.348Z",
+        "parent_link_ids": null,
+        "time_spent_sum": 0,
+        "created": "2026-01-14T05:41:23.348Z",
+        "public": false,
+        "parent_checklist_ids": null,
+        "milestone_id": null,
+        "locked": null,
+        "size_text": null,
+        "blocked": false,
+        "sort_order": 5,
+        "lane_id": 1999071,
+        "estimate_workload": 0,
+        "due_date_time_present": false,
+        "external_id": null,
+        "children_count": 0,
+        "uid": "5c6a6db9-db3f-470a813-044cf9ed836a",
+        "updater_id": 707164,
+        "state": 1,
+        "lane_changed_at": "2026-01-14T05:41:23.348Z",
+        "sd_new_comment": false,
+        "tag_ids": null,
+        "properties": {
+          "id_529637": 5,
+          "id_529638": 1,
+          "id_530178": [
+            16258460
+          ],
+          "id_529630": 5,
+          "id_532084": [
+            16258463
+          ],
+          "id_529631": 5,
+          "id_529643": 5,
+          "id_532086": [
+            16258467
+          ],
+          "id_532087": [
+            16258470
+          ],
+          "id_529634": 5
+        },
+        "board_id": 1613875,
+        "first_moved_to_in_progress_at": null,
+        "children_number_properties_sum": null,
+        "import_id": null,
+        "external_emails": null,
+        "has_blocked_children": false,
+        "children_ids": null,
+        "version": 89,
+        "title": "Тестовая задача. Удалить потом",
+        "counters_recalculated_at": "2026-01-18T15:09:31.458Z",
+        "comments_total": 0,
+        "parents_count": 0,
+        "due_date": null,
+        "completed_on_time": null,
+        "blocking_card": false,
+        "source": "app",
+        "updated": "2026-01-25T16:36:16.579Z",
+        "id": 59682997,
+        "condition": 1,
+        "share_id": null,
+        "comment_last_added_at": null,
+        "fifo_order": null,
+        "description": null,
+        "fts_version": "027267",
+        "calculated_planned_end": null
+      },
+      "changes": {
+        "updated": "2026-01-25T16:36:18.956Z",
+        "version": 90,
+        "properties": {
+          "id_529637": 5,
+          "id_529638": 5,
+          "id_530178": [
+            16258460
+          ],
+          "id_529630": 5,
+          "id_532084": [
+            16258463
+          ],
+          "id_529631": 5,
+          "id_529643": 5,
+          "id_532086": [
+            16258467
+          ],
+          "id_532087": [
+            16258470
+          ],
+          "id_529634": 5
+        }
+      },
+      "author": {
+        "id": 707164,
+        "full_name": "Денис Яковлев",
+        "username": "ДенисЯковлев",
+        "email": "denis.honig.yakovlev@gmail.com"
+      }
+    }
+  }
+}

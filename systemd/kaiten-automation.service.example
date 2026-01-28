@@ -1,0 +1,20 @@
+[Unit]
+Description=Kaiten Automation Service
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/opt/kaiten-automation
+Environment="PATH=/opt/kaiten-automation/venv/bin"
+ExecStart=/opt/kaiten-automation/venv/bin/python webhook_handler.py
+Restart=always
+RestartSec=10
+
+# Логирование
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=kaiten-automation
+
+[Install]
+WantedBy=multi-user.target
