@@ -25,6 +25,41 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+VALUES_SCORE = {
+    # Актуальность
+    'Низкая': 1.0,
+    'Слабая': 2.0,
+    'Средняя': 3.0,
+    'Высокая': 4.0,
+    'Максимальная': 5.0,
+    # Новизна
+    'Копипаста': 1.0,
+    'Баян': 2.0,
+    'Находка есть, прорыва нет': 3.0,
+    'Уникальный опыт': 4.0,
+    '100 баллов свежести': 5.0,
+    # Применимость
+    'Вдохновиться': 1.0,
+    'Без рецепта': 2.0,
+    'Фрагментарно': 3.0,
+    'Toolkit': 4.0,
+    'Под ключ': 5.0,
+    # Массовость
+    'Для профи': 1.0,
+    'Для своих': 2.0,
+    'Связующее звено': 3.0,
+    'Для всей команды': 4.0,
+    'Для всей IT-кухни': 5.0,
+    # Опыт спикера
+    'Низкий': 1.0,  # Норм, что дублится, повтор для читаемости
+    'Ниже среднего': 2.0,
+    'Средний': 3.0,
+    'Высокий': 4.0,
+    'Экспертный': 5.0,
+
+}
+
+
 class KaitenClient:
     """Клиент для работы с Kaiten API"""
     
@@ -189,31 +224,41 @@ class CardStatusAutomation:
             for prop in card['custom_properties']:
                 if prop.get('id') == field_id or prop.get('property_id') == field_id:
                     value = prop.get('value')
-                    if value is not None:
-                        try:
-                            return float(value)
-                        except (ValueError, TypeError):
-                            return 0.0
+                    if value is not None and isinstance(value, str):
+                        return self._value_to_float(value)
+                    else:
+                        logger.error(f"Неизвестное значение поля {value}")
+                        return 0.0
         
         # Вариант 2: поля в properties
         if 'properties' in card:
             prop = card['properties'].get(field_id)
-            if prop is not None:
-                try:
-                    return float(prop)
-                except (ValueError, TypeError):
-                    return 0.0
+            if prop is not None and isinstance(prop, str):
+                return self._value_to_float(prop)
+            else:
+                logger.error(f"Неизвестное значение поля {prop}")
+                return 0.0
         
         # Вариант 3: прямое обращение по ID
         field_value = card.get(field_id)
-        if field_value is not None:
-            try:
-                return float(field_value)
-            except (ValueError, TypeError):
-                return 0.0
+        if field_value is not None and isinstance(field_value, str):
+            return self._value_to_float(field_value)
+        else:
+            logger.error(f"Неизвестное значение поля {field_value}")
+            return 0.0
         
         logger.warning(f"Поле {field_id} не найдено в карточке {card.get('id')}")
         return 0.0
+
+    def _value_to_float(self, value: str) -> float:
+        if not value in VALUES_SCORE:
+            try:
+                return float(value)
+            except (ValueError, TypeError):
+                logger.error(f'Неизвестное значение поля {value}')
+                return 0.0
+
+        return float(VALUES_SCORE[value])
     
     def calculate_sum(self, card: Dict[str, Any]) -> float:
         """Вычислить сумму числовых полей"""
