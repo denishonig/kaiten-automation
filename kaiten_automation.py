@@ -27,17 +27,17 @@ logger = logging.getLogger(__name__)
 
 VALUES_SCORE = {
     # Актуальность
-    'Низкая': 1.0,
-    'Слабая': 2.0,
-    'Средняя': 3.0,
-    'Высокая': 4.0,
-    'Максимальная': 5.0,
+    '1 - Низкая': 1.0,
+    '2 - Слабая': 2.0,
+    '3 - Средняя': 3.0,
+    '4 - Высокая': 4.0,
+    '5 - Максимальная': 5.0,
     # Новизна
-    'Копипаста': 1.0,
-    'Баян': 2.0,
-    'Находка есть, прорыва нет': 3.0,
-    'Уникальный опыт': 4.0,
-    '100 баллов свежести': 5.0,
+    '1 - Копипаста': 1.0,
+    '2 - Баян': 2.0,
+    '3 - Находка есть, прорыва нет': 3.0,
+    '4 - Уникальный опыт': 4.0,
+    '5 - 100 % свежести': 5.0,
     # Применимость
     'Вдохновиться': 1.0,
     'Без рецепта': 2.0,
@@ -214,6 +214,39 @@ class CardStatusAutomation:
         self.threshold_gold = config.get('threshold_gold', 13)
         self.threshold_silver = config.get('threshold_silver', 9)
     
+    def _resolve_select_value(self, field_id: str, raw_list: List[Any]) -> Optional[str]:
+        """
+        Для поля типа select в карточке хранится список id значений.
+        По property_id запрашиваем select-values и возвращаем value по первому id из списка.
+        """
+        if not raw_list:
+            return None
+        try:
+            property_id = int(str(field_id).replace('id_', '').strip())
+        except (ValueError, TypeError):
+            logger.debug(f"Не удалось извлечь property_id из field_id={field_id}")
+            return None
+        values = self.client.get_select_values(property_id)
+        if not values:
+            return None
+        selected_id = raw_list[0]
+        for item in values:
+            if item.get('id') == selected_id:
+                return item.get('value')
+        return None
+    
+    def _normalize_field_value_for_score(self, value: Any, field_id: str) -> Optional[str]:
+        """Привести значение поля к строке для _value_to_float (поддержка select и старых типов)."""
+        if value is None:
+            return None
+        if isinstance(value, str):
+            return value
+        if isinstance(value, (int, float)):
+            return str(value)
+        if isinstance(value, list) and value:
+            return self._resolve_select_value(field_id, value)
+        return None
+    
     def extract_numeric_value(self, card: Dict[str, Any], field_id: str) -> float:
         """Извлечь числовое значение поля из карточки"""
         # Kaiten API может хранить поля в разных местах
@@ -222,30 +255,32 @@ class CardStatusAutomation:
         # Вариант 1: поля в custom_properties
         if 'custom_properties' in card:
             for prop in card['custom_properties']:
-                if prop.get('id') == field_id or prop.get('property_id') == field_id:
+                if str(prop.get('id')) == str(field_id) or str(prop.get('property_id')) == str(field_id):
                     value = prop.get('value')
-                    if value is not None and isinstance(value, str):
-                        return self._value_to_float(value)
-                    else:
-                        logger.error(f"Неизвестное значение поля {value}")
-                        return 0.0
+                    normalized = self._normalize_field_value_for_score(value, field_id)
+                    if normalized is not None:
+                        return self._value_to_float(normalized)
+                    logger.debug(f"Не удалось нормализовать значение поля (select?): {value}")
+                    return 0.0
         
         # Вариант 2: поля в properties
         if 'properties' in card:
             prop = card['properties'].get(field_id)
-            if prop is not None and isinstance(prop, str):
-                return self._value_to_float(prop)
-            else:
-                logger.error(f"Неизвестное значение поля {prop}")
+            if prop is not None:
+                normalized = self._normalize_field_value_for_score(prop, field_id)
+                if normalized is not None:
+                    return self._value_to_float(normalized)
+                logger.debug(f"Не удалось нормализовать значение из properties: {prop}")
                 return 0.0
         
-        # Вариант 3: прямое обращение по ID
-        field_value = card.get(field_id)
-        if field_value is not None and isinstance(field_value, str):
-            return self._value_to_float(field_value)
-        else:
-            logger.error(f"Неизвестное значение поля {field_value}")
-            return 0.0
+        # Вариант 3: ключ вида id_542109 в корне карточки (иногда properties лежит там)
+        key = field_id if field_id in card else f"id_{field_id}" if f"id_{field_id}" in card else None
+        if key is not None:
+            field_value = card.get(key)
+            if field_value is not None:
+                normalized = self._normalize_field_value_for_score(field_value, field_id)
+                if normalized is not None:
+                    return self._value_to_float(normalized)
         
         logger.warning(f"Поле {field_id} не найдено в карточке {card.get('id')}")
         return 0.0

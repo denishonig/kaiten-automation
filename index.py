@@ -252,8 +252,39 @@ class ConferenceProposalEvaluator:
         self.field_uroven_spikera = config.get('field_uroven_spikera')  # Уровень спикера
         self.field_ohvat = config.get('field_ohvat')  # Охват
     
+    def _resolve_select_value(self, field_id: str, raw_list: List[Any]) -> Optional[str]:
+        """
+        Для поля типа select в карточке хранится список id значений.
+        По property_id запрашиваем select-values и возвращаем value по первому id из списка.
+        """
+        if not raw_list:
+            return None
+        try:
+            property_id = int(str(field_id).replace('id_', '').strip())
+        except (ValueError, TypeError):
+            logger.debug(f"Не удалось извлечь property_id из field_id={field_id}")
+            return None
+        values = self.client.get_select_values(property_id)
+        if not values:
+            return None
+        selected_id = raw_list[0]
+        for item in values:
+            if item.get('id') == selected_id:
+                return item.get('value')
+        return None
+    
+    def _normalize_field_value(self, value: Any, field_id: str) -> Any:
+        """Привести значение поля к итоговому виду (разрешить select по id в список значений)."""
+        if value is None:
+            return None
+        if isinstance(value, list) and value:
+            resolved = self._resolve_select_value(field_id, value)
+            if resolved is not None:
+                return resolved
+        return value
+    
     def extract_field_value(self, card: Dict[str, Any], field_id: str) -> Optional[Any]:
-        """Извлечь значение поля из карточки (поддерживает разные типы)"""
+        """Извлечь значение поля из карточки (поддерживает разные типы, в т.ч. select по id)"""
         if not field_id:
             return None
         
@@ -272,33 +303,47 @@ class ConferenceProposalEvaluator:
                     prop_name == field_id):
                     value = prop.get('value')
                     logger.debug(f"  ✓ Найдено в custom_properties: value={value}")
-                    return value
+                    return self._normalize_field_value(value, field_id)
         
         # Вариант 2: поля в properties
         if 'properties' in card:
             if field_id in card['properties']:
                 value = card['properties'][field_id]
                 logger.debug(f"  ✓ Найдено в properties: value={value}")
-                return value
+                return self._normalize_field_value(value, field_id)
         
-        # Вариант 3: прямое обращение по ID
+        # Вариант 3: прямое обращение по ID (в т.ч. id_542109 в корне)
         if field_id in card:
             value = card[field_id]
             logger.debug(f"  ✓ Найдено напрямую: value={value}")
-            return value
+            return self._normalize_field_value(value, field_id)
+        # Ключ id_542109, если в конфиге указан 542109
+        alt_key = f"id_{field_id}" if not str(field_id).startswith('id_') else None
+        if alt_key and alt_key in card:
+            value = card[alt_key]
+            logger.debug(f"  ✓ Найдено по ключу {alt_key}: value={value}")
+            return self._normalize_field_value(value, field_id)
         
         logger.debug(f"  ✗ Поле {field_id} не найдено")
         return None
     
     def extract_numeric_value(self, card: Dict[str, Any], field_id: str) -> float:
-        """Извлечь числовое значение поля"""
+        """Извлечь числовое значение поля (поддержка select: строка вроде «3 - Средняя» → число по маппингу)"""
         value = self.extract_field_value(card, field_id)
         if value is None:
             return 0.0
         try:
             return float(value)
         except (ValueError, TypeError):
-            return 0.0
+            pass
+        # Строковое значение после разрешения select (напр. «3 - Средняя») → число по маппингу
+        try:
+            from kaiten_automation import VALUES_SCORE
+            if isinstance(value, str) and value in VALUES_SCORE:
+                return float(VALUES_SCORE[value])
+        except ImportError:
+            pass
+        return 0.0
     
     def extract_text_value(self, card: Dict[str, Any], field_id: str) -> Optional[str]:
         """Извлечь текстовое значение поля"""
