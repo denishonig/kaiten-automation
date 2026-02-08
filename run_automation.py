@@ -7,6 +7,7 @@ CLI-утилита для запуска автоматизации вычисл
 import os
 import sys
 import argparse
+import json
 import logging
 from dotenv import load_dotenv
 from kaiten_automation import KaitenClient
@@ -23,9 +24,10 @@ except ImportError as e:
     print("Убедитесь, что файл index.py находится в той же директории.")
     sys.exit(1)
 
-# Настройка логирования
+# Настройка логирования (LOG_LEVEL=DEBUG выводит ответы API в лог)
+log_level = os.environ.get('LOG_LEVEL', 'INFO').upper()
 logging.basicConfig(
-    level=logging.INFO,
+    level=getattr(logging, log_level, logging.INFO),
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
@@ -42,7 +44,11 @@ def process_single_card(card_id: int, client: KaitenClient, config: dict, dry_ru
             return 1
         print(f"\n📋 Карточка {card_id}: {card.get('title', 'N/A')[:60]}...")
         print("=" * 60)
-        # Поля критериев из конфига
+        print("\nОтвет API GET /cards/{0}:".format(card_id))
+        print("-" * 60)
+        print(json.dumps(card, ensure_ascii=False, indent=2))
+        print("-" * 60)
+        # Предзагрузка select-values для всех полей (чтобы кэш был заполнен до извлечения)
         field_names = [
             ('field_aktualnost', 'FIELD_AKTUALNOST', 'Актуальность'),
             ('field_novizna', 'FIELD_NOVIZNA', 'Новизна'),
@@ -52,6 +58,14 @@ def process_single_card(card_id: int, client: KaitenClient, config: dict, dry_ru
             ('field_harizma', 'FIELD_HARIZMA', 'Харизма'),
             ('field_influencer', 'FIELD_INFLUENCER', 'Инфлюенсер'),
         ]
+        for attr, _, _ in field_names:
+            fid = config.get(attr)
+            if fid:
+                try:
+                    pid = int(str(fid).replace('id_', '').strip())
+                    client.get_select_values(pid)
+                except (ValueError, TypeError):
+                    pass
         print("\nИзвлечённые значения полей (с разрешением select по API):")
         print("-" * 60)
         for attr, env_name, label in field_names:

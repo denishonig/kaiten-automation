@@ -36,26 +36,47 @@ VALUES_SCORE = {
     '1 - Копипаста': 1.0,
     '2 - Баян': 2.0,
     '3 - Находка есть, прорыва нет': 3.0,
+    '3 - Находки есть, прорыва нет': 3.0,  # вариант из API
     '4 - Уникальный опыт': 4.0,
     '5 - 100 % свежести': 5.0,
+    '5 - 100% свежести': 5.0,  # вариант без пробела перед %
     # Применимость
-    'Вдохновиться': 1.0,
-    'Без рецепта': 2.0,
-    'Фрагментарно': 3.0,
-    'Toolkit': 4.0,
-    'Под ключ': 5.0,
-    # Массовость
-    'Для профи': 1.0,
-    'Для своих': 2.0,
-    'Связующее звено': 3.0,
-    'Для всей команды': 4.0,
-    'Для всей IT-кухни': 5.0,
+    '1 - Вдохновиться': 1.0,
+    '2 - Без рецепта': 2.0,
+    '3 - Фрагментарно': 3.0,
+    '4 - Toolkit': 4.0,
+    '5 - Под ключ': 5.0,
+    '5 -Под ключ': 5.0,  # вариант без пробела после дефиса (обратная совместимость)
+    # Массовость (IT/ІТ — латиница и кириллица могут смешиваться в API)
+    '1 - Для Профи': 1.0,
+    '2 - Для своих': 2.0,
+    '3 - Связующее звено': 3.0,
+    '4 - Для всей команды': 4.0,
+    '5 - Для всей IT кухни': 5.0,
+    '5 - Для всей ІТ кухни': 5.0,   # кириллические І, Т (U+0406, U+0422)
+    '5 - Для всей IТ кухни': 5.0,   # Latin I + Cyrillic Т
+    '5 - Для всей ІT кухни': 5.0,   # Cyrillic І + Latin T
     # Опыт спикера
-    'Низкий': 1.0,  # Норм, что дублится, повтор для читаемости
-    'Ниже среднего': 2.0,
-    'Средний': 3.0,
-    'Высокий': 4.0,
-    'Экспертный': 5.0,
+    '1 - Низкий': 1.0,  # Норм, что дублится, повтор для читаемости
+    '2 - Ниже среднего': 2.0,
+    '3 - Средний': 3.0,
+    '4 - Высокий': 4.0,
+    '5 - Экспертный': 5.0,
+    # Харизма (шкала может отличаться от опыта спикера)
+    '1 - Низкое качество': 1.0,
+    '2 - Ниже среднего качества': 2.0,
+    '3 - Среднее качество': 3.0,
+    '4 - Выше среднего': 4.0,
+    '5 - Высокое качество': 5.0,
+    '1 - Нет записей или опыта': 1.0,  # вариант шкалы Харизмы в API
+    '2 - Очень ограниченный опыт': 2.0,
+    '4 - Хороший уровень': 4.0,
+    '5 - Отлично': 5.0,  # вариант шкалы Харизмы в API
+    # Инфлюенсер (Да/Нет)
+    'Да': 1.0,
+    'Нет': 0.0,
+    'Yes': 1.0,
+    'No': 0.0,
 
 }
 
@@ -71,13 +92,16 @@ class KaitenClient:
             'Authorization': f'Bearer {api_token}',
             'Content-Type': 'application/json'
         })
+        self._select_values_cache: Dict[int, List[Dict[str, Any]]] = {}
     
     def get_card(self, card_id: int) -> Optional[Dict[str, Any]]:
         """Получить карточку по ID"""
         try:
             response = self.session.get(f'{self.api_url}/cards/{card_id}')
             response.raise_for_status()
-            return response.json()
+            data = response.json()
+            logger.debug(f"Ответ API GET /cards/{card_id}: {json.dumps(data, ensure_ascii=False, indent=2)}")
+            return data
         except requests.exceptions.RequestException as e:
             logger.error(f"Ошибка при получении карточки {card_id}: {e}")
             return None
@@ -184,21 +208,38 @@ class KaitenClient:
             return None
     
     def get_select_values(self, property_id: int) -> Optional[List[Dict[str, Any]]]:
-        """Получить список значений для Select-поля по ID свойства"""
+        """Получить список значений для Select-поля по ID свойства (с кэшем на сессию)."""
+        if property_id in self._select_values_cache:
+            return self._select_values_cache[property_id]
         try:
-            response = self.session.get(f'{self.api_url}/company/custom-properties/{property_id}/select-values')
+            url = f'{self.api_url}/company/custom-properties/{property_id}/select-values'
+            response = self.session.get(url)
             response.raise_for_status()
             result = response.json()
-            # API может возвращать массив напрямую или объект с полем
-            if isinstance(result, list):
-                return result
-            elif isinstance(result, dict) and 'values' in result:
-                return result['values']
-            else:
-                return []
+            logger.debug(f"Ответ API GET {url}: {json.dumps(result, ensure_ascii=False, indent=2)}")
+            values = self._parse_select_values_response(result)
+            # Кэшируем только непустые ответы, чтобы при временной ошибке API повторить запрос
+            if values is not None and len(values) > 0:
+                self._select_values_cache[property_id] = values
+            return values
         except requests.exceptions.RequestException as e:
             logger.debug(f"Не удалось получить значения Select-поля {property_id}: {e}")
             return None
+
+    def _parse_select_values_response(self, result: Any) -> Optional[List[Dict[str, Any]]]:
+        """Извлечь список вариантов из ответа API (массив или объект с разными ключами)."""
+        if isinstance(result, list):
+            return result if result else []
+        if isinstance(result, dict):
+            for key in ('values', 'data', 'select_values', 'items', 'results', 'options', 'choices'):
+                if key in result and isinstance(result[key], list):
+                    return result[key]
+            for v in result.values():
+                if isinstance(v, list) and v and isinstance(v[0], dict):
+                    first = v[0]
+                    if any(k in first for k in ('id', 'option_id', 'value_id', 'select_value_id')):
+                        return v
+        return []
 
 
 class CardStatusAutomation:
@@ -228,11 +269,22 @@ class CardStatusAutomation:
             return None
         values = self.client.get_select_values(property_id)
         if not values:
+            logger.debug(f"get_select_values({property_id}) вернул пустой результат")
             return None
         selected_id = raw_list[0]
         for item in values:
-            if item.get('id') == selected_id:
-                return item.get('value')
+            item_id = item.get('id') or item.get('option_id') or item.get('value_id') or item.get('select_value_id')
+            if item_id is None:
+                continue
+            item_value = item.get('value') or item.get('name') or item.get('label') or item.get('text') or item.get('title')
+            # Сравниваем с учётом int/str (API может вернуть id как число или строку)
+            try:
+                if int(item_id) == int(selected_id):
+                    return item_value
+            except (TypeError, ValueError):
+                if item_id == selected_id:
+                    return item_value
+        logger.debug(f"В select-values для property_id={property_id} не найден id={selected_id!r}")
         return None
     
     def _normalize_field_value_for_score(self, value: Any, field_id: str) -> Optional[str]:
@@ -286,14 +338,17 @@ class CardStatusAutomation:
         return 0.0
 
     def _value_to_float(self, value: str) -> float:
-        if not value in VALUES_SCORE:
-            try:
-                return float(value)
-            except (ValueError, TypeError):
-                logger.error(f'Неизвестное значение поля {value}')
-                return 0.0
-
-        return float(VALUES_SCORE[value])
+        if value in VALUES_SCORE:
+            return float(VALUES_SCORE[value])
+        # Нормализация смешанного IT/ІТ (кириллица → латиница) для поиска
+        normalized = value.replace('\u0406', 'I').replace('\u0422', 'T')
+        if normalized in VALUES_SCORE:
+            return float(VALUES_SCORE[normalized])
+        try:
+            return float(value)
+        except (ValueError, TypeError):
+            logger.error(f'Неизвестное значение поля {value}')
+            return 0.0
     
     def calculate_sum(self, card: Dict[str, Any]) -> float:
         """Вычислить сумму числовых полей"""

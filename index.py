@@ -48,6 +48,7 @@ except ImportError:
                 'Authorization': f'Bearer {api_token}',
                 'Content-Type': 'application/json'
             })
+            self._select_values_cache: Dict[int, List[Dict[str, Any]]] = {}
         
         def _make_request_with_retry(self, method: str, url: str, **kwargs) -> requests.Response:
             """
@@ -140,7 +141,9 @@ except ImportError:
             """Получить карточку по ID"""
             try:
                 response = self._make_request_with_retry('get', f'{self.api_url}/cards/{card_id}')
-                return response.json()
+                data = response.json()
+                logger.debug(f"Ответ API GET /cards/{card_id}: {json.dumps(data, ensure_ascii=False, indent=2)}")
+                return data
             except requests.exceptions.RequestException as e:
                 logger.error(f"Ошибка при получении карточки {card_id}: {e}")
                 return None
@@ -205,18 +208,35 @@ except ImportError:
                 logger.debug(f"Не удалось получить информацию о свойстве {property_id}: {e}")
                 return None
         
+        def _parse_select_values_response(self, result: Any) -> Optional[List[Dict[str, Any]]]:
+            """Извлечь список вариантов из ответа API (массив или объект с разными ключами)."""
+            if isinstance(result, list):
+                return result if result else []
+            if isinstance(result, dict):
+                for key in ('values', 'data', 'select_values', 'items', 'results', 'options', 'choices'):
+                    if key in result and isinstance(result[key], list):
+                        return result[key]
+                for v in result.values():
+                    if isinstance(v, list) and v and isinstance(v[0], dict):
+                        first = v[0]
+                        if any(k in first for k in ('id', 'option_id', 'value_id', 'select_value_id')):
+                            return v
+            return []
+
         def get_select_values(self, property_id: int) -> Optional[List[Dict[str, Any]]]:
-            """Получить список значений для Select-поля по ID свойства"""
+            """Получить список значений для Select-поля по ID свойства (с кэшем на сессию)."""
+            if property_id in self._select_values_cache:
+                return self._select_values_cache[property_id]
             try:
-                response = self._make_request_with_retry('get', f'{self.api_url}/company/custom-properties/{property_id}/select-values')
+                url = f'{self.api_url}/company/custom-properties/{property_id}/select-values'
+                response = self._make_request_with_retry('get', url)
                 result = response.json()
-                # API может возвращать массив напрямую или объект с полем
-                if isinstance(result, list):
-                    return result
-                elif isinstance(result, dict) and 'values' in result:
-                    return result['values']
-                else:
-                    return []
+                logger.debug(f"Ответ API GET {url}: {json.dumps(result, ensure_ascii=False, indent=2)}")
+                values = self._parse_select_values_response(result)
+                # Кэшируем только непустые ответы, чтобы при временной ошибке API повторить запрос
+                if values is not None and len(values) > 0:
+                    self._select_values_cache[property_id] = values
+                return values
             except requests.exceptions.RequestException as e:
                 logger.debug(f"Не удалось получить значения Select-поля {property_id}: {e}")
                 return None
@@ -266,11 +286,22 @@ class ConferenceProposalEvaluator:
             return None
         values = self.client.get_select_values(property_id)
         if not values:
+            logger.debug(f"get_select_values({property_id}) вернул пустой результат")
             return None
         selected_id = raw_list[0]
         for item in values:
-            if item.get('id') == selected_id:
-                return item.get('value')
+            item_id = item.get('id') or item.get('option_id') or item.get('value_id') or item.get('select_value_id')
+            if item_id is None:
+                continue
+            item_value = item.get('value') or item.get('name') or item.get('label') or item.get('text') or item.get('title')
+            # Сравниваем с учётом int/str (API может вернуть id как число или строку)
+            try:
+                if int(item_id) == int(selected_id):
+                    return item_value
+            except (TypeError, ValueError):
+                if item_id == selected_id:
+                    return item_value
+        logger.debug(f"В select-values для property_id={property_id} не найден id={selected_id!r}")
         return None
     
     def _normalize_field_value(self, value: Any, field_id: str) -> Any:
@@ -339,8 +370,13 @@ class ConferenceProposalEvaluator:
         # Строковое значение после разрешения select (напр. «3 - Средняя») → число по маппингу
         try:
             from kaiten_automation import VALUES_SCORE
-            if isinstance(value, str) and value in VALUES_SCORE:
-                return float(VALUES_SCORE[value])
+            if isinstance(value, str):
+                if value in VALUES_SCORE:
+                    return float(VALUES_SCORE[value])
+                # Нормализация смешанного IT/ІТ (кириллица U+0406, U+0422 → латиница) для поиска
+                normalized = value.replace('\u0406', 'I').replace('\u0422', 'T')
+                if normalized in VALUES_SCORE:
+                    return float(VALUES_SCORE[normalized])
         except ImportError:
             pass
         return 0.0
@@ -487,25 +523,21 @@ class ConferenceProposalEvaluator:
         
         logger.debug(f"Тип Контента: Применимость={primenimost}, Массовость={massovost}")
         
-        if primenimost == 0:
+        if primenimost < 1:
             return "Не определен"
-        
-        # Хардкор: Под ключ (5) + Массовость <= 2 (Для профи/Для своих)
-        if primenimost == 5 and massovost <= 2:
+        # Используем >= для устойчивости к float (5.0, 4.0 и т.д.)
+        # Хардкор: Под ключ (5) + Массовость <= 2
+        if primenimost >= 5 and massovost <= 2:
             return "Хардкор"
-        
         # Массовость: Под ключ (5) + Массовость > 2
-        if primenimost == 5 and massovost > 2:
+        if primenimost >= 5 and massovost > 2:
             return "Массовость"
-        
         # Практический кейс: Toolkit (4) или Фрагментарно (3)
-        if primenimost == 4 or primenimost == 3:
+        if primenimost >= 3:
             return "Практический кейс"
-        
         # Вдохновение/Обзор: Вдохновиться (1) или Без рецепта (2)
-        if primenimost == 1 or primenimost == 2:
+        if primenimost >= 1:
             return "Вдохновение/Обзор"
-        
         return "Не определен"
     
     def calculate_uroven_spikera(self, card: Dict[str, Any]) -> str:
@@ -550,21 +582,13 @@ class ConferenceProposalEvaluator:
         
         logger.debug(f"Охват: Массовость={massovost}")
         
-        if massovost == 0:
-            return "Не определен"
-        
-        # Для всех: Для всей команды (4) или Для всей IT-кухни (5)
-        if massovost == 4 or massovost == 5:
+        # Используем >= для устойчивости к float (4.0, 5.0)
+        if massovost >= 4:
             return "Для всех"
-        
-        # Кросс: Связующее звено (3)
-        if massovost == 3:
+        if massovost >= 3:
             return "Кросс"
-        
-        # Ниша: Для профи (1) или Для своих (2)
-        if massovost == 1 or massovost == 2:
+        if massovost >= 1:
             return "Ниша"
-        
         return "Не определен"
     
     def calculate_all_parameters(self, card: Dict[str, Any]) -> Dict[str, str]:
