@@ -196,6 +196,36 @@ class KaitenClient:
                 logger.error(f"Ответ сервера: {e.response.text}")
                 logger.error(f"URL: {url}")
             return []
+
+    def get_board_columns(self, board_id: int) -> List[Dict[str, Any]]:
+        """Колонки доски (включая вложенные subcolumns)."""
+        try:
+            response = self.session.get(f'{self.api_url}/boards/{board_id}/columns')
+            response.raise_for_status()
+            result = response.json()
+            if isinstance(result, dict) and 'columns' in result:
+                return result['columns']
+            if isinstance(result, list):
+                return result
+            return []
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Ошибка при получении колонок доски {board_id}: {e}")
+            return []
+
+    @staticmethod
+    def flatten_board_columns(columns: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Развернуть дерево колонок в плоский список."""
+        out: List[Dict[str, Any]] = []
+
+        def walk(cols: List[Dict[str, Any]]) -> None:
+            for col in cols or []:
+                out.append(col)
+                subs = col.get('subcolumns')
+                if isinstance(subs, list) and subs:
+                    walk(subs)
+
+        walk(columns)
+        return out
     
     def get_property(self, property_id: int) -> Optional[Dict[str, Any]]:
         """Получить информацию о свойстве по ID"""
